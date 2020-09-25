@@ -1175,6 +1175,174 @@ lagg_stop(struct lagg_softc *sc)
 	lagg_proto_stop(sc);
 }
 
+/*
+ * XXX(arr): I am unsure if this is needed for proto given it's location in
+ * the lagg_reqall data structure and the location of the none-size changing
+ * types
+ *
+ */
+
+static u_int
+lagg_reqall_get_ra_proto(void *lrp, u_long cmd)
+{
+	union {                                             
+		struct lagg_reqall	lr;
+#ifdef  COMPAT_FREEBSD32
+		struct lagg_reqall32    lr32;
+#endif
+	} *lrup;
+	lrup = lrp;
+	switch (IOCPARM_LEN(cmd)) {
+	case sizeof(lrup->lr);
+		return (lrup->lr.ra_proto);
+#ifdef	COMPAT_FREEBSD32
+	case sizeof(lrup->lr32):
+		return (lrup->lr32.ra_proto);
+#endif
+	default:
+		panic("Unhandled ioctl command %ld", cmd);
+	}
+}
+
+static size_t
+lagg_reqall_get_ra_size(void *lrp, u_long cmd)
+{
+	union {                                             
+	struct lagg_reqall	lr;
+#ifdef  COMPAT_FREEBSD32
+		struct lagg_reqall32    lr32;
+#endif
+	} *lrup;
+	lrup = lrp;
+	switch (IOCPARM_LEN(cmd)) {
+	case sizeof(lrup->lr);
+		return (lrup->lr.ra_size);
+#ifdef	COMPAT_FREEBSD32
+	case sizeof(lrup->lr32):
+		return ((size_t)((uint32_t)lrup->lr32.ra_size));
+#endif
+	default:
+		panic("Unhandled ioctl command %ld", cmd);
+	}
+}
+
+static struct lacp_opreq *
+lagg_reqall_get_ra_psc_ptr(void *lrp, u_long cmd)
+{
+	union {                                             
+	struct lagg_reqall	lr;
+#ifdef  COMPAT_FREEBSD32
+		struct lagg_reqall32    lr32;
+#endif
+	} *lrup;
+	lrup = lrp;
+	switch (IOCPARM_LEN(cmd)) {
+	case sizeof(lrup->lr);
+		return ((struct lacp_opreq *)&lrup->lr.psc);
+#ifdef	COMPAT_FREEBSD32
+	case sizeof(lrup->lr32):
+		return ((struct lacp_opreq *)((uint32_t)&lrup->lr32.psc));
+#endif
+	default:
+		panic("Unhandled ioctl command %ld", cmd);
+	}
+}
+
+			//ra->ra_port, ra->ra_size); //XXX
+static struct lagg_reqport *
+lagg_reqall_get_ra_port(void *lrp, u_long cmd)
+{
+	union {                                             
+	struct lagg_reqall	lr;
+#ifdef  COMPAT_FREEBSD32
+		struct lagg_reqall32    lr32;
+#endif
+	} *lrup;
+	lrup = lrp;
+	switch (IOCPARM_LEN(cmd)) {
+	case sizeof(lrup->lr);
+		return ((struct lacp_opreq *)&lrup->lr.psc);
+#ifdef	COMPAT_FREEBSD32
+	case sizeof(lrup->lr32):
+		return ((struct lacp_opreq *)((uint32_t)&lrup->lr32.psc));
+#endif
+	default:
+		panic("Unhandled ioctl command %ld", cmd);
+	}
+
+}
+static void 
+lagg_reqall_set_ra_proto(void *lrp, u_long cmd, u_int nval)
+{
+	union {                                             
+	struct lagg_reqall	lr;
+#ifdef  COMPAT_FREEBSD32
+		struct lagg_reqall32    lr32;
+#endif
+	} *lrup;
+	lrup = lrp;
+	switch (IOCPARM_LEN(cmd)) {
+	case sizeof(lrup->lr);
+		lrup->lr.ra_proto = nval;
+		return; 
+#ifdef	COMPAT_FREEBSD32
+	case sizeof(lrup->lr32):
+		lrup->lr.ra_proto = nval;
+		return;
+#endif
+	default:
+		panic("Unhandled ioctl command %ld", cmd);
+	}
+}
+
+
+static void 
+lagg_reqall_set_ra_ports(void *lrp, u_long cmd, int nval)
+{
+	union {                                             
+	struct lagg_reqall	lr;
+#ifdef  COMPAT_FREEBSD32
+		struct lagg_reqall32    lr32;
+#endif
+	} *lrup;
+	lrup = lrp;
+	switch (IOCPARM_LEN(cmd)) {
+	case sizeof(lrup->lr);
+		lrup->lr.ra_ports = nval;
+		return; 
+#ifdef	COMPAT_FREEBSD32
+	case sizeof(lrup->lr32):
+		lrup->lr.ra_ports = nval;
+		return;
+#endif
+	default:
+		panic("Unhandled ioctl command %ld", cmd);
+	}
+}
+
+static void 
+lagg_reqall_set_ra_size(void *lrp, u_long cmd, size_t nval)
+{
+	union {                                             
+	struct lagg_reqall	lr;
+#ifdef  COMPAT_FREEBSD32
+		struct lagg_reqall32    lr32;
+#endif
+	} *lrup;
+	lrup = lrp;
+	switch (IOCPARM_LEN(cmd)) {
+	case sizeof(lrup->lr);
+		lrup->lr.ra_size = nval;
+		return; 
+#ifdef	COMPAT_FREEBSD32
+	case sizeof(lrup->lr32):
+		lrup->lr.ra_size = (uint32_t)nval;
+		return;
+#endif
+	default:
+		panic("Unhandled ioctl command %ld", cmd);
+	}
+}
 static int
 lagg_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 {
@@ -1196,14 +1364,17 @@ lagg_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 
 	switch (cmd) {
 	case SIOCGLAGG:
+#ifdef	COMPAT_FREEBSD32
+	case SIOCGLAGG_32:
+#endif
 		LAGG_XLOCK(sc);
 		buflen = sc->sc_count * sizeof(struct lagg_reqport);
 		outbuf = malloc(buflen, M_TEMP, M_WAITOK | M_ZERO);
-		ra->ra_proto = sc->sc_proto;
-		lagg_proto_request(sc, &ra->ra_psc);
+		lagg_reqall_set_ra_proto(data, cmd, sc->sc_proto);
+		lagg_proto_request(sc, lagg_reqall_get_ra_psc_ptr(data, cmd));
 		count = 0;
 		buf = outbuf;
-		len = min(ra->ra_size, buflen);
+		len = min(lagg_reqall_get_ra_size(data, cmd), buflen);
 		CK_SLIST_FOREACH(lp, &sc->sc_ports, lp_entries) {
 			if (len < sizeof(rpbuf))
 				break;
@@ -1215,16 +1386,21 @@ lagg_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 			len -= sizeof(rpbuf);
 		}
 		LAGG_XUNLOCK(sc);
-		ra->ra_ports = count;
-		ra->ra_size = count * sizeof(rpbuf);
-		error = copyout(outbuf, ra->ra_port, ra->ra_size);
+		lagg_reqall_set_ra_ports(data, cmd, count);
+		lagg_reqall_set_ra_size(data, cmd, count * sizeof(rpbuf));
+		error = copyout(outbuf, lagg_reqall_get_ra_port(data, cmd), 
+		    lagg_reqall_get_ra_size(data, cmd));
 		free(outbuf, M_TEMP);
 		break;
 	case SIOCSLAGG:
+#ifdef	FREEBSD_COMPAT32
+	case SIOCSLAGG_32:
+#endif
 		error = priv_check(td, PRIV_NET_LAGG);
 		if (error)
 			break;
-		if (ra->ra_proto >= LAGG_PROTO_MAX) {
+		u_int proto = lagg_reqall_get_proto(data, SIOCSLAGG);
+		if (proto >= LAGG_PROTO_MAX) {
 			error = EPROTONOSUPPORT;
 			break;
 		}
@@ -1232,7 +1408,7 @@ lagg_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		LAGG_XLOCK(sc);
 		lagg_proto_detach(sc);
 		LAGG_UNLOCK_ASSERT();
-		lagg_proto_attach(sc, ra->ra_proto);
+		lagg_proto_attach(sc, proto);
 		LAGG_XUNLOCK(sc);
 		break;
 	case SIOCGLAGGOPTS:

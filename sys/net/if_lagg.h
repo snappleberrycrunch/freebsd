@@ -127,6 +127,24 @@ struct lagg_reqall {
 #define	SIOCGLAGG		_IOWR('i', 143, struct lagg_reqall)
 #define	SIOCSLAGG		 _IOW('i', 144, struct lagg_reqall)
 
+#ifdef	COMPAT_FREEBSD32
+struct lagg_reqall32 {
+	char			ra_ifname[IFNAMSIZ];
+	u_int			ra_proto;
+	uint32_t		ra_size;	/* changed from size_t */
+	uint32_t		ra_port;	/* changed from (struct lagg__reqport *) */
+	int				ra_ports;
+	union {
+		struct lacp_opreq rpsc_lacp;
+	} ra_psc;
+};
+
+#define	SIOCGLAGG_32	\
+    _IOC_NEWTYPE(SIOCGLAGG, struct lagg_reqall32)
+#define	SIOCSLAGG_32	\
+    _IOC_NEWTYPE(SIOCSLAGG, struct lagg_reqall32)
+#endif
+
 struct lagg_reqflags {
 	char			rf_ifname[IFNAMSIZ];	/* name of the lagg */
 	uint32_t		rf_flags;		/* lagg protocol */
